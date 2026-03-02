@@ -47,6 +47,7 @@ app.get("/api/denue", (req, res) => {
     const codigo = req.query.codigo;
 
     console.log("Codigo recibido:", codigo);
+    console.log("Lat:", lat, "Lng:", lng);
 
     if (!lat || !lng) {
         return res.status(400).json({ error: "Faltan coordenadas" });
