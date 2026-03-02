@@ -220,7 +220,7 @@ async function fetchNegocios(lat, lng, radio = 500) {
             url += `&codigo=${codigo}`;
         }
 
-        const res = await fetch(url);
+const res = await fetch("https://TU-SERVICIO.onrender.com/api/denue?lat=" + lat + "&lng=" + lng + "&radio=1000&codigo=464111");
         const data = await res.json();
 
         negocios = data.negocios;
