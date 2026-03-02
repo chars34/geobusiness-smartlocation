@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoBusiness SmartLocation - Puebla</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .bg-app-blue { background-color: #004289; }
+        .bg-app-dark-blue { background-color: #003366; }
+        .bg-app-light { background-color: #E8ECEF; }
+        .text-app-blue { color: #004289; }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+
+    <div class="max-w-4xl mx-auto bg-app-light min-h-screen shadow-2xl flex flex-col relative pb-20">
+
+        <header class="bg-app-blue text-white p-6 shadow-lg text-center">
+            <h1 class="text-2xl font-extrabold tracking-tight flex items-center justify-center gap-2">
+                <i data-lucide="map" class="w-6 h-6"></i>
+                GeoBusiness SmartLocation
+            </h1>
+            <p class="text-sm text-blue-100 mt-1">Análisis Geo-Inteligente — Puebla, México</p>
+        </header>
+
+        <main class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+
+            <!-- Sección: Tipo de Negocio -->
+            <section class="bg-white rounded-2xl shadow border overflow-hidden">
+                <div class="bg-app-dark-blue text-white py-3 px-4 text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                    Tipo de Negocio
+                </div>
+                <div class="p-4 space-y-3" id="business-list"></div>
+            </section>
+
+            <!-- Sección: Ubicación -->
+            <section class="bg-white rounded-2xl shadow border overflow-hidden">
+                <div class="bg-app-dark-blue text-white py-3 px-4 text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-4 h-4"></i>
+                    Ubicación en Puebla
+                </div>
+                <div class="p-4 flex flex-col h-[calc(100%-2.75rem)] justify-between">
+                    <div class="rounded-xl overflow-hidden border shadow-inner mb-4 flex-grow">
+<div id="map" style="height:100%; min-height:250px;"></div>
+
+                    </div>
+    
+<!-- 🔥 AQUÍ VAN LOS BOTONES -->
+<div class="flex gap-2 mb-3">
+    <button onclick="setPoint('A')" 
+        class="flex-1 bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-600 transition">
+        Seleccionar Punto A
+    </button>
+    <button onclick="setPoint('B')" 
+        class="flex-1 bg-purple-500 text-white py-2 rounded-lg font-bold hover:bg-purple-600 transition">
+        Seleccionar Punto B
+    </button>
+</div>
+
+<button onclick="analyzeLocation()"
+    class="w-full bg-app-blue text-white py-3 rounded-xl font-bold hover:bg-app-dark-blue transition-colors flex justify-center items-center gap-2 shadow-md hover:shadow-lg">
+    <i data-lucide="search" class="w-5 h-5"></i>
+    Analizar Punto en Puebla
+</button>
+            </section>
+
+            <!-- Sección: Resultados -->
+            <section class="bg-white rounded-2xl shadow border overflow-hidden">
+                <div class="bg-app-dark-blue text-white py-3 px-4 text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                    Resultados
+                </div>
+                <div id="result-placeholder" class="p-10 text-center text-gray-400 flex flex-col items-center justify-center h-[calc(100%-2.75rem)]">
+                    <i data-lucide="mouse-pointer-click" class="w-10 h-10 mb-2 opacity-50"></i>
+                    <p>Selecciona un negocio y haz clic en "Analizar Punto"</p>
+                </div>
+
+                <div id="result-content" class="p-6 hidden">
+                    <div class="text-center mb-6">
+                        <div class="text-4xl font-black text-app-blue transition-all" id="score-text">0%</div>
+                        <div class="text-xs text-gray-500 mb-2 font-semibold tracking-wide uppercase">Viabilidad del sitio</div>
+                        <div class="w-full h-4 bg-gray-200 rounded-full mt-2 overflow-hidden shadow-inner">
+                            <div id="score-bar" class="h-full bg-green-500 transition-all duration-1000 ease-out" style="width:0%"></div>
+                        </div>
+                    </div>
+                    <div id="variable-list" class="space-y-2 text-sm text-gray-700"></div>
+                </div>
+            </section>
+
+            <!-- Sección: Simulador Financiero -->
+            <section class="bg-white rounded-2xl shadow border overflow-hidden">
+                <div class="bg-app-dark-blue text-white py-3 px-4 text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                    Simulador Financiero
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Inversión Inicial (MXN)</label>
+                        <input type="number" id="input-inversion" value="350000"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-app-blue outline-none transition-shadow" placeholder="Ej. 350000">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Ventas Mensuales Estimadas (MXN)</label>
+                        <input type="number" id="input-ventas" value="120000"
+                            class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-app-blue outline-none transition-shadow" placeholder="Ej. 120000">
+                    </div>
+
+                    <button onclick="calculateROI()"
+                        class="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors shadow-md hover:shadow-lg mt-2">
+                        Calcular Proyección
+                    </button>
+
+                    <div id="roi-result" class="text-center font-bold text-lg mt-4 min-h-[5rem]"></div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // 🔥 Mapa oficial SCIAN
+const mapaSCIAN = {
+    "Restaurante": "722515",
+    "Cafetería": "722513",
+    "Tienda de ropa": "448110",
+    "Farmacia": "464111"
+};
+        // Configuración de pesos
+        const businessWeights = {
+            'Restaurante': { peatonal: 0.25, competencia: 0.20, nivel: 0.15, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.10 },
+            'Cafetería': { peatonal: 0.30, competencia: 0.15, nivel: 0.20, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.05 },
+            'Tienda de ropa': { peatonal: 0.20, competencia: 0.20, nivel: 0.25, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.05 },
+            'Farmacia': { peatonal: 0.15, competencia: 0.25, nivel: 0.10, seguridad: 0.20, renta: 0.10, accesibilidad: 0.10, tendencia: 0.10 }
+        };
+
+        let currentBusiness = "Restaurante";
+        let pointA = null;
+let pointB = null;
+let currentPoint = "A";
+
+        const locationData = { peatonal: 0, competencia: 0, nivel: 0, seguridad: 0, renta: 0, accesibilidad: 0, tendencia: 0 };
+
+        // Utilidades
+        const random = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const formatCurrency = (num) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(num);
+
+        function simulateData() {
+            locationData.peatonal = random(65, 95);
+            locationData.competencia = random(40, 85);
+            locationData.nivel = random(60, 90);
+            locationData.seguridad = random(55, 85);
+            locationData.renta = random(50, 80);
+            locationData.accesibilidad = random(70, 95);
+            locationData.tendencia = random(60, 90);
+        }
+
+        function initBusinessButtons() {
+            const list = document.getElementById("business-list");
+            list.innerHTML = "";
+            
+            Object.keys(businessWeights).forEach(name => {
+                const btn = document.createElement("button");
+                const isActive = name === currentBusiness;
+                
+                // Clases base y estado activo (Mejora de UX)
+                btn.className = `w-full p-3 rounded-xl font-bold transition-all duration-200 text-left px-5 flex justify-between items-center border-2 
+                    ${isActive ? 'bg-app-blue text-white border-app-blue shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:border-app-blue hover:text-app-blue hover:bg-blue-50'}`;
+                
+                btn.innerHTML = `
+                    <span>${name}</span>
+                    ${isActive ? '<i data-lucide="check-circle" class="w-5 h-5 text-white"></i>' : ''}
+                `;
+                
+                btn.onclick = () => {
+                    currentBusiness = name;
+                    initBusinessButtons(); // Re-renderizar para actualizar el botón activo
+                    lucide.createIcons(); // Recargar iconos en los botones nuevos
+                    
+                    // Si ya se había analizado, actualizar resultados automáticamente
+                    if (!document.getElementById("result-content").classList.contains("hidden")) {
+                        analyzeLocation();
+                    }
+                };
+                list.appendChild(btn);
+            });
+        }
+
+        function getScoreColor(score) {
+            if (score >= 75) return "bg-green-500 text-green-600";
+            if (score >= 55) return "bg-yellow-400 text-yellow-600";
+            return "bg-red-500 text-red-600";
+        }
+function setPoint(point) {
+    currentPoint = point;
+    alert("Ahora estás analizando Punto " + point);
+}
+// 🔥 Funciones para conectar con backend y mostrar negocios reales
+
+
+async function fetchNegocios(lat, lng, radio = 500) {
+    try {
+
+        let url = `http://localhost:3000/api/denue?lat=${lat}&lng=${lng}&radio=${radio}`;
+
+        // 🔥 Enviar codigo_act real en lugar de texto
+        const codigo = mapaSCIAN[currentBusiness];
+
+        if (codigo) {
+            url += `&codigo=${codigo}`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        negocios = data.negocios;
+
+        mostrarNegociosEnLista();
+        mostrarNegociosEnMapa();
+
+    } catch (err) {
+        console.error("Error al cargar negocios:", err);
+    }
+}
+
+// 🔹 Mostrar negocios en la lista lateral
+
+function mostrarNegociosEnLista() {
+
+    const list = document.getElementById("business-list");
+    list.innerHTML = "";
+
+    if (!negocios || negocios.length === 0) {
+        list.innerHTML = "<p class='text-gray-400 text-sm'>No se encontraron negocios.</p>";
+        return;
+    }
+
+    const primerosDiez = negocios.slice(0, 10);
+
+    primerosDiez.forEach(n => {
+
+        const nombre =
+            n.nom_estab ||   // 🔥 ESTE ES EL CAMPO REAL DEL DENUE
+            n.nom_est ||
+            n.NOMBRE ||
+            "Sin nombre";
+
+        const lat = parseFloat(n.latitud);
+        const lng = parseFloat(n.longitud);
+
+        const btn = document.createElement("button");
+        btn.className = "w-full p-3 rounded-xl text-left border bg-white hover:bg-blue-50";
+
+        btn.innerHTML = `
+            <div class="font-bold text-app-blue">${nombre}</div>
+            <div class="text-xs text-gray-500">${n.nombre_act || ""}</div>
+        `;
+
+        btn.onclick = () => {
+            if (lat && lng) {
+                map.setView([lat, lng], 17);
+            }
+        };
+
+        list.appendChild(btn);
+    });
+}
+function mostrarNegociosEnMapa() {
+
+    negocioMarkers.forEach(m => map.removeLayer(m));
+    negocioMarkers = [];
+
+    negocios.slice(0, 30).forEach(n => {
+
+        const lat = parseFloat(n.latitud);
+        const lng = parseFloat(n.longitud);
+        const nombre = n.nom_estab || "Negocio";
+
+        if (lat && lng) {
+            const marker = L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup(`<b>${nombre}</b>`);
+
+            negocioMarkers.push(marker);
+        }
+    });
+}
+  function analyzeLocation() {
+     // Obtener coordenadas del punto seleccionado
+    // Obtener coordenadas del punto seleccionado
+let lat, lng;
+if (currentPoint === "A" && markerA) {
+    ({ lat, lng } = markerA.getLatLng());
+    fetchNegocios(lat, lng);
+} else if (currentPoint === "B" && markerB) {
+    ({ lat, lng } = markerB.getLatLng());
+    fetchNegocios(lat, lng);
+}
+
+    simulateData(); // tu función existente
+// 🔥 Competencia real basada en negocios encontrados
+const competenciaReal = negocios.length;
+
+// Convertir competencia en score (menos competencia = mejor)
+let competenciaScore;
+
+if (competenciaReal <= 2) competenciaScore = 90;
+else if (competenciaReal <= 5) competenciaScore = 75;
+else if (competenciaReal <= 10) competenciaScore = 55;
+else competenciaScore = 35;
+
+locationData.competencia = competenciaScore;
+    let weights = businessWeights[currentBusiness];
+    let score = 0;
+
+    Object.keys(weights).forEach(key => {
+        score += weights[key] * locationData[key];
+    });
+
+    const scoreFormatted = score.toFixed(1);
+
+    const bar = document.getElementById("score-bar");
+    const scoreText = document.getElementById("score-text");
+
+    const colorClass = getScoreColor(scoreFormatted).split(' ')[0];
+    const textColorClass = getScoreColor(scoreFormatted).split(' ')[1];
+
+    // Reset barra para animación limpia
+    bar.style.width = "0%";
+
+    setTimeout(() => {
+        bar.className = `h-full transition-all duration-1000 ease-out ${colorClass}`;
+        bar.style.width = scoreFormatted + "%";
+    }, 50);
+
+    scoreText.innerText = scoreFormatted + "%";
+    scoreText.className = `text-4xl font-black transition-colors ${textColorClass}`;
+
+    document.getElementById("result-placeholder").classList.add("hidden");
+    document.getElementById("result-content").classList.remove("hidden");
+
+    // Variables visuales
+    const contadorHTML = `
+    <div class="mb-3 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700 font-semibold text-center">
+        Competencia en ${currentPoint === "A" ? "Punto A" : "Punto B"} (500m): 
+        <span class="font-black">${negocios.length}</span> establecimientos
+    </div>
+`;
+    const variablesHTML = [
+        { label: 'Flujo Peatonal', key: 'peatonal' },
+        { label: 'Nivel Socioeconómico', key: 'nivel' },
+        { label: 'Accesibilidad', key: 'accesibilidad' },
+        { label: 'Seguridad', key: 'seguridad' },
+        { label: 'Competencia (Saturación)', key: 'competencia' }
+    ].map(v => `
+        <div class="flex justify-between items-center p-2 rounded bg-gray-50 border border-gray-100">
+            <span class="font-medium text-gray-600">${v.label}</span>
+            <span class="font-bold ${locationData[v.key] >= 70 ? 'text-green-600' : (locationData[v.key] >= 50 ? 'text-yellow-600' : 'text-red-600')}">
+                ${locationData[v.key]}%
+            </span>
+        </div>
+    `).join('');
+
+   document.getElementById("variable-list").innerHTML = contadorHTML + variablesHTML;
+    // Guardar punto para comparación
+    if (currentPoint === "A") {
+        pointA = score;
+    } else {
+        pointB = score;
+    }
+
+    // Mostrar comparación si ya existen ambos puntos
+    mostrarComparacion();
+}
+
+     function mostrarComparacion() {
+
+    if (pointA !== null && pointB !== null) {
+
+        let recomendacion;
+        let mejorPunto;
+
+        if (pointA > pointB) {
+            mejorPunto = "A";
+        } else if (pointB > pointA) {
+            mejorPunto = "B";
+        } else {
+            mejorPunto = "Empate";
+        }
+
+        if (mejorPunto === "Empate") {
+            recomendacion = `
+                <div class="mt-4 p-3 bg-gray-100 border rounded-lg text-center font-semibold">
+                    Ambos puntos tienen el mismo nivel de viabilidad.
+                </div>
+            `;
+        } else {
+            recomendacion = `
+                <div class="mt-4 p-4 bg-green-50 border border-green-300 rounded-lg text-center">
+                    <div class="text-sm text-gray-600">Mejor ubicación:</div>
+                    <div class="text-2xl font-black text-green-600">
+                        Punto ${mejorPunto}
+                    </div>
+                </div>
+            `;
+        }
+
+        document.getElementById("variable-list").innerHTML += recomendacion;
+    }
+}
+
+
+        function calculateROI() {
+            const inversion = parseFloat(document.getElementById("input-inversion").value);
+            const ventas = parseFloat(document.getElementById("input-ventas").value);
+
+            if (!inversion || !ventas || inversion <= 0 || ventas <= 0) {
+                document.getElementById("roi-result").innerHTML = `
+                    <div class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                        Por favor, ingresa montos válidos mayores a cero.
+                    </div>`;
+                return;
+            }
+
+            const renta = ventas * 0.10;
+            const margen = ventas * 0.40;
+            const utilidadMensual = margen - renta;
+            
+            if (utilidadMensual <= 0) {
+                 document.getElementById("roi-result").innerHTML = `
+                    <div class="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                        La utilidad proyectada es negativa. Revisa tus ventas.
+                    </div>`;
+                return;
+            }
+
+            const utilidadAnual = utilidadMensual * 12;
+            const roi = ((utilidadAnual / inversion) * 100).toFixed(1);
+            const mesesRecuperacion = (inversion / utilidadMensual).toFixed(1);
+            const añosRecuperacion = (mesesRecuperacion / 12).toFixed(1);
+
+            // Formato mejorado de resultados financieros (Mejora Visual)
+            document.getElementById("roi-result").innerHTML = `
+                <div class="flex flex-col gap-2 text-sm text-gray-700 mt-2">
+                    <div class="flex justify-between bg-blue-50 p-2.5 rounded-lg border border-blue-100">
+                        <span>ROI Anual Estimado:</span>
+                        <span class="font-black text-app-blue">${roi}%</span>
+                    </div>
+                    <div class="flex justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                        <span>Punto de Equilibrio:</span>
+                        <span class="font-bold text-gray-800">${mesesRecuperacion} meses</span>
+                    </div>
+                    <div class="flex justify-between bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                        <span>Recuperación Total:</span>
+                        <span class="font-bold text-gray-800">${añosRecuperacion} años</span>
+                    </div>
+                </div>
+            `;
+        }
+let map;
+let markerA = null;
+let markerB = null;
+let negocios = [];
+let negocioMarkers = [];
+
+function initMap() {
+
+    // Centro Puebla
+    map = L.map('map').setView([19.0433, -98.2019], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    map.on('click', function(e) {
+
+        if (currentPoint === "A") {
+
+            if (markerA) {
+                map.removeLayer(markerA);
+            }
+
+            markerA = L.marker(e.latlng, { draggable: true })
+                .addTo(map)
+                .bindPopup("Punto A")
+                .openPopup();
+
+        } else {
+
+            if (markerB) {
+                map.removeLayer(markerB);
+            }
+
+            markerB = L.marker(e.latlng, { draggable: true })
+                .addTo(map)
+                .bindPopup("Punto B")
+                .openPopup();
+        }
+
+        alert("Ubicación guardada para Punto " + currentPoint);
+    });
+}
+    window.onload = () => {
+    initBusinessButtons();
+    lucide.createIcons();
+    initMap();
+};
+    </script>
+</body>
+</html>
