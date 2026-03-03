@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -52,6 +52,10 @@
                 <div class="p-4 flex flex-col h-[calc(100%-2.75rem)] justify-between">
                     <div class="rounded-xl overflow-hidden border shadow-inner mb-4 flex-grow">
 <div id="map" style="height:100%; min-height:250px;"></div>
+<div class="p-4 space-y-2 border-t">
+    <div class="text-xs font-bold text-gray-500 uppercase">Competencia cercana</div>
+    <div id="negocios-lista" class="space-y-2 max-h-48 overflow-y-auto"></div>
+</div>
 
                     </div>
     
@@ -71,6 +75,11 @@
     class="w-full bg-app-blue text-white py-3 rounded-xl font-bold hover:bg-app-dark-blue transition-colors flex justify-center items-center gap-2 shadow-md hover:shadow-lg">
     <i data-lucide="search" class="w-5 h-5"></i>
     Analizar Punto en Puebla
+</button>
+<button onclick="buscarMejorZona()"
+    class="w-full bg-app-blue text-white py-3 rounded-xl font-bold hover:bg-app-dark-blue transition-colors flex justify-center items-center gap-2 shadow-md hover:shadow-lg">
+    <i data-lucide="search" class="w-5 h-5"></i>
+    Detectar Mejor Zona Automáticamente
 </button>
             </section>
 
@@ -130,25 +139,258 @@
 
     <script>
         // 🔥 Mapa oficial SCIAN
-const mapaSCIAN = {
-    "Restaurante": "722515",
-    "Cafetería": "722513",
-    "Tienda de ropa": "448110",
-    "Farmacia": "464111"
-};
-        // Configuración de pesos
-        const businessWeights = {
-            'Restaurante': { peatonal: 0.25, competencia: 0.20, nivel: 0.15, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.10 },
-            'Cafetería': { peatonal: 0.30, competencia: 0.15, nivel: 0.20, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.05 },
-            'Tienda de ropa': { peatonal: 0.20, competencia: 0.20, nivel: 0.25, seguridad: 0.10, renta: 0.10, accesibilidad: 0.10, tendencia: 0.05 },
-            'Farmacia': { peatonal: 0.15, competencia: 0.25, nivel: 0.10, seguridad: 0.20, renta: 0.10, accesibilidad: 0.10, tendencia: 0.10 }
-        };
+const businessWeights = {
 
-        let currentBusiness = "Restaurante";
+    // TIENDAS
+    'abarrotes': {
+        peatonal: 0.30,
+        competencia: 0.25,
+        nivel: 0.10,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'supermercado': {
+        peatonal: 0.20,
+        competencia: 0.30,
+        nivel: 0.15,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'conveniencia': {
+        peatonal: 0.35,
+        competencia: 0.25,
+        nivel: 0.10,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.05,
+        tendencia: 0.05
+    },
+
+    'tienda de ropa': {
+        peatonal: 0.30,
+        competencia: 0.20,
+        nivel: 0.20,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.05,
+        tendencia: 0.05
+    },
+
+    'ferreteria': {
+        peatonal: 0.15,
+        competencia: 0.25,
+        nivel: 0.15,
+        seguridad: 0.15,
+        renta: 0.15,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'papeleria': {
+        peatonal: 0.25,
+        competencia: 0.20,
+        nivel: 0.15,
+        seguridad: 0.10,
+        renta: 0.15,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    // SALUD
+    'farmacia': {
+        peatonal: 0.15,
+        competencia: 0.25,
+        nivel: 0.10,
+        seguridad: 0.20,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.10
+    },
+
+    'clinica': {
+        peatonal: 0.15,
+        competencia: 0.20,
+        nivel: 0.20,
+        seguridad: 0.20,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'dentista': {
+        peatonal: 0.20,
+        competencia: 0.25,
+        nivel: 0.20,
+        seguridad: 0.15,
+        renta: 0.10,
+        accesibilidad: 0.05,
+        tendencia: 0.05
+    },
+
+    // COMIDA
+    'restaurante': {
+        peatonal: 0.25,
+        competencia: 0.20,
+        nivel: 0.15,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.10
+    },
+
+    'cafe': {
+        peatonal: 0.30,
+        competencia: 0.15,
+        nivel: 0.20,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'taqueria': {
+        peatonal: 0.35,
+        competencia: 0.20,
+        nivel: 0.10,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'panaderia': {
+        peatonal: 0.30,
+        competencia: 0.20,
+        nivel: 0.15,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    // SERVICIOS
+    'estetica': {
+        peatonal: 0.25,
+        competencia: 0.20,
+        nivel: 0.20,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'peluqueria': {
+        peatonal: 0.30,
+        competencia: 0.25,
+        nivel: 0.15,
+        seguridad: 0.10,
+        renta: 0.10,
+        accesibilidad: 0.05,
+        tendencia: 0.05
+    },
+
+    'lavanderia': {
+        peatonal: 0.20,
+        competencia: 0.25,
+        nivel: 0.10,
+        seguridad: 0.15,
+        renta: 0.15,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    'gimnasio': {
+        peatonal: 0.20,
+        competencia: 0.20,
+        nivel: 0.20,
+        seguridad: 0.15,
+        renta: 0.10,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    // AUTOMOTRIZ
+    'taller mecanico': {
+        peatonal: 0.10,
+        competencia: 0.25,
+        nivel: 0.10,
+        seguridad: 0.15,
+        renta: 0.20,
+        accesibilidad: 0.15,
+        tendencia: 0.05
+    },
+
+    'refaccionaria': {
+        peatonal: 0.15,
+        competencia: 0.25,
+        nivel: 0.15,
+        seguridad: 0.15,
+        renta: 0.15,
+        accesibilidad: 0.10,
+        tendencia: 0.05
+    },
+
+    // OTROS
+    'hotel': {
+        peatonal: 0.20,
+        competencia: 0.20,
+        nivel: 0.25,
+        seguridad: 0.15,
+        renta: 0.10,
+        accesibilidad: 0.05,
+        tendencia: 0.05
+    }
+};
+// 🔥 MAPA REAL SCIAN → conecta frontend con INEGI DENUE
+const mapaSCIAN = {
+
+    // TIENDAS
+    'abarrotes': '461110',
+    'supermercado': '462111',
+    'conveniencia': '462112',
+    'tienda de ropa': '463211',
+    'ferreteria': '467111',
+    'papeleria': '465311',
+
+    // SALUD
+    'farmacia': '464111',
+    'clinica': '621111',
+    'dentista': '621211',
+
+    // COMIDA
+    'restaurante': '722511',
+    'cafe': '722515',
+    'taqueria': '722514',
+    'panaderia': '311812',
+
+    // SERVICIOS
+    'estetica': '812110',
+    'peluqueria': '812111',
+    'lavanderia': '812210',
+    'gimnasio': '713940',
+
+    // AUTOMOTRIZ
+    'taller mecanico': '811111',
+    'refaccionaria': '468211',
+
+    // OTROS
+    'hotel': '721111'
+
+};
+
+
+        let currentBusiness = "restaurante";
         let pointA = null;
 let pointB = null;
 let currentPoint = "A";
-
+let circleA = null;
+let circleB = null;
         const locationData = { peatonal: 0, competencia: 0, nivel: 0, seguridad: 0, renta: 0, accesibilidad: 0, tendencia: 0 };
 
         // Utilidades
@@ -164,38 +406,120 @@ let currentPoint = "A";
             locationData.accesibilidad = random(70, 95);
             locationData.tendencia = random(60, 90);
         }
+function initBusinessButtons() {
 
-        function initBusinessButtons() {
-            const list = document.getElementById("business-list");
-            list.innerHTML = "";
-            
-            Object.keys(businessWeights).forEach(name => {
-                const btn = document.createElement("button");
-                const isActive = name === currentBusiness;
-                
-                // Clases base y estado activo (Mejora de UX)
-                btn.className = `w-full p-3 rounded-xl font-bold transition-all duration-200 text-left px-5 flex justify-between items-center border-2 
-                    ${isActive ? 'bg-app-blue text-white border-app-blue shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:border-app-blue hover:text-app-blue hover:bg-blue-50'}`;
-                
-                btn.innerHTML = `
-                    <span>${name}</span>
-                    ${isActive ? '<i data-lucide="check-circle" class="w-5 h-5 text-white"></i>' : ''}
-                `;
-                
-                btn.onclick = () => {
-                    currentBusiness = name;
-                    initBusinessButtons(); // Re-renderizar para actualizar el botón activo
-                    lucide.createIcons(); // Recargar iconos en los botones nuevos
-                    
-                    // Si ya se había analizado, actualizar resultados automáticamente
-                    if (!document.getElementById("result-content").classList.contains("hidden")) {
-                        analyzeLocation();
-                    }
-                };
-                list.appendChild(btn);
-            });
-        }
+    const list = document.getElementById("business-list");
+    list.innerHTML = "";
 
+    const negocios = Object.keys(businessWeights);
+
+    // 🔥 Mostrar solo los primeros 6
+    const visibles = negocios.slice(0, 6);
+    const ocultos = negocios.slice(6);
+
+    function crearBoton(name) {
+        const btn = document.createElement("button");
+        const isActive = name === currentBusiness;
+
+        btn.className = `w-full p-3 rounded-xl font-bold transition-all duration-200 text-left px-5 flex justify-between items-center border-2 
+            ${isActive 
+                ? 'bg-app-blue text-white border-app-blue shadow-md' 
+                : 'bg-white text-gray-600 border-gray-200 hover:border-app-blue hover:text-app-blue hover:bg-blue-50'
+            }`;
+
+        btn.innerHTML = `
+            <span>${name}</span>
+            ${isActive ? '<i data-lucide="check-circle" class="w-5 h-5 text-white"></i>' : ''}
+        `;
+
+       btn.onclick = () => {
+    currentBusiness = name;
+
+    resetMapaYResultados();   // 🔥 LIMPIAR TODO
+
+    initBusinessButtons();
+    lucide.createIcons();
+};
+        return btn;
+    }
+
+    // 🔹 Agregar visibles
+    visibles.forEach(name => {
+        list.appendChild(crearBoton(name));
+    });
+
+    // 🔥 Crear sublista desplegable
+    if (ocultos.length > 0) {
+
+        const details = document.createElement("details");
+        details.className = "mt-2";
+
+        const summary = document.createElement("summary");
+        summary.className = "cursor-pointer text-sm font-semibold text-app-blue";
+        summary.innerText = "Ver más tipos de negocio";
+
+        details.appendChild(summary);
+
+        const subContainer = document.createElement("div");
+        subContainer.className = "mt-2 space-y-2";
+
+        ocultos.forEach(name => {
+            subContainer.appendChild(crearBoton(name));
+        });
+
+        details.appendChild(subContainer);
+        list.appendChild(details);
+    }
+}
+function resetMapaYResultados() {
+
+    // 🔹 Eliminar marcadores
+    if (markerA) {
+        map.removeLayer(markerA);
+        markerA = null;
+    }
+
+    if (markerB) {
+        map.removeLayer(markerB);
+        markerB = null;
+    }
+
+    // 🔹 Eliminar círculos
+    if (circleA) {
+        map.removeLayer(circleA);
+        circleA = null;
+    }
+
+    if (circleB) {
+        map.removeLayer(circleB);
+        circleB = null;
+    }
+
+    // 🔹 Eliminar heatmap
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+        heatLayer = null;
+    }
+
+    // 🔹 Eliminar negocios del mapa
+    negocioMarkers.forEach(m => map.removeLayer(m));
+    negocioMarkers = [];
+
+    // 🔹 Reset variables
+    pointA = null;
+    pointB = null;
+
+    // 🔹 Limpiar lista lateral
+    const lista = document.getElementById("negocios-lista");
+    if (lista) lista.innerHTML = "";
+
+    // 🔹 Reset resultados
+    document.getElementById("result-content").classList.add("hidden");
+    document.getElementById("result-placeholder").classList.remove("hidden");
+
+    document.getElementById("score-bar").style.width = "0%";
+    document.getElementById("score-text").innerText = "0%";
+}
         function getScoreColor(score) {
             if (score >= 75) return "bg-green-500 text-green-600";
             if (score >= 55) return "bg-yellow-400 text-yellow-600";
@@ -204,6 +528,62 @@ let currentPoint = "A";
 function setPoint(point) {
     currentPoint = point;
     alert("Ahora estás analizando Punto " + point);
+}
+async function buscarMejorZona() {
+
+    alert("Analizando toda la zona cercana...");
+
+    const centro = map.getCenter();
+
+    let mejorScore = 0;
+    let mejorLat = null;
+    let mejorLng = null;
+
+    // probar 12 puntos alrededor
+    for (let i = 0; i < 12; i++) {
+
+        const lat = centro.lat + (Math.random() - 0.5) * 0.02;
+        const lng = centro.lng + (Math.random() - 0.5) * 0.02;
+
+        await fetchNegocios(lat, lng);
+
+        const competenciaReal = negocios.length;
+
+        const score = Math.max(20, 100 - competenciaReal * 8);
+
+        if (score > mejorScore) {
+
+            mejorScore = score;
+            mejorLat = lat;
+            mejorLng = lng;
+
+        }
+    }
+
+    if (mejorLat && mejorLng) {
+
+        const icon = L.icon({
+            iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
+            iconSize: [32,32]
+        });
+
+        L.marker([mejorLat, mejorLng], { icon })
+            .addTo(map)
+            .bindPopup(`
+                <b>MEJOR UBICACIÓN DETECTADA</b><br>
+                Score: ${mejorScore.toFixed(1)}%
+            `)
+            .openPopup();
+
+        map.setView([mejorLat, mejorLng], 15);
+L.circle([mejorLat, mejorLng], {
+    radius: 500,
+    color: "green",
+    fillColor: "#22c55e",
+    fillOpacity: 0.15
+}).addTo(map);
+    }
+
 }
 // 🔥 Funciones para conectar con backend y mostrar negocios reales
 
@@ -220,112 +600,188 @@ async function fetchNegocios(lat, lng, radio = 500) {
             url += `&codigo=${codigo}`;
         }
 
-const res = await fetch("https://TU-SERVICIO.onrender.com/api/denue?lat=" + lat + "&lng=" + lng + "&radio=1000&codigo=464111");
+        const res = await fetch(url);
         const data = await res.json();
 
         negocios = data.negocios;
 
         mostrarNegociosEnLista();
         mostrarNegociosEnMapa();
-
+mostrarHeatmap();
     } catch (err) {
         console.error("Error al cargar negocios:", err);
     }
 }
 
 // 🔹 Mostrar negocios en la lista lateral
-
 function mostrarNegociosEnLista() {
 
-    const list = document.getElementById("business-list");
+    const list = document.getElementById("negocios-lista");
+
+    if (!list) return;
+
     list.innerHTML = "";
 
     if (!negocios || negocios.length === 0) {
+
         list.innerHTML = "<p class='text-gray-400 text-sm'>No se encontraron negocios.</p>";
         return;
     }
+const titulo = document.createElement("div");
 
-    const primerosDiez = negocios.slice(0, 10);
+titulo.className = "text-xs font-bold text-red-600";
 
-    primerosDiez.forEach(n => {
+titulo.innerText = negocios.length + " negocios encontrados";
 
-        const nombre =
-            n.nom_estab ||   // 🔥 ESTE ES EL CAMPO REAL DEL DENUE
-            n.nom_est ||
-            n.NOMBRE ||
-            "Sin nombre";
+list.appendChild(titulo);
+    negocios.slice(0, 10).forEach(n => {
 
-        const lat = parseFloat(n.latitud);
-        const lng = parseFloat(n.longitud);
+        const nombre = n.nombre || "Sin nombre";
 
-        const btn = document.createElement("button");
-        btn.className = "w-full p-3 rounded-xl text-left border bg-white hover:bg-blue-50";
+        const btn = document.createElement("div");
+
+        btn.className = "p-2 bg-red-50 border border-red-200 rounded text-sm";
 
         btn.innerHTML = `
-            <div class="font-bold text-app-blue">${nombre}</div>
-            <div class="text-xs text-gray-500">${n.nombre_act || ""}</div>
+            <div class="font-bold text-red-700">${nombre}</div>
+            <div class="text-xs text-gray-500">${n.direccion || ""}</div>
         `;
 
-        btn.onclick = () => {
-            if (lat && lng) {
-                map.setView([lat, lng], 17);
-            }
-        };
-
         list.appendChild(btn);
+
     });
+
 }
+
 function mostrarNegociosEnMapa() {
 
     negocioMarkers.forEach(m => map.removeLayer(m));
     negocioMarkers = [];
 
-    negocios.slice(0, 30).forEach(n => {
+    negocios.slice(0, 50).forEach(n => {
 
         const lat = parseFloat(n.latitud);
         const lng = parseFloat(n.longitud);
-        const nombre = n.nom_estab || "Negocio";
+        const nombre = n.nombre || "Negocio";
 
-        if (lat && lng) {
-            const marker = L.marker([lat, lng])
-                .addTo(map)
-                .bindPopup(`<b>${nombre}</b>`);
+      if (!isNaN(lat) && !isNaN(lng)) {
 
+            const icon = L.icon({
+                iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+                iconSize: [32, 32]
+            });
+
+          const marker = L.marker([lat, lng], { icon })
+    .addTo(map)
+    .bindPopup(`
+        <div style="font-weight:bold;color:#b91c1c">
+            ${nombre}
+        </div>
+        <div style="font-size:12px;color:#555">
+            ${n.direccion || ""}
+        </div>
+    `)
+    .bindTooltip(nombre, {
+        permanent: false,
+        direction: "top"
+    });
             negocioMarkers.push(marker);
         }
     });
 }
-  function analyzeLocation() {
-     // Obtener coordenadas del punto seleccionado
-    // Obtener coordenadas del punto seleccionado
-let lat, lng;
-if (currentPoint === "A" && markerA) {
-    ({ lat, lng } = markerA.getLatLng());
-    fetchNegocios(lat, lng);
-} else if (currentPoint === "B" && markerB) {
-    ({ lat, lng } = markerB.getLatLng());
-    fetchNegocios(lat, lng);
+function detectarMejorPuntoAutomatico() {
+
+    if (!markerA || !markerB) return;
+
+    const scoreA = pointA ?? 0;
+    const scoreB = pointB ?? 0;
+
+    if (scoreA > scoreB) {
+
+        markerA.setIcon(new L.Icon.Default());
+
+        markerB.setIcon(new L.Icon({
+            iconUrl: "https://maps.google.com/mapfiles/ms/icons/gray-dot.png",
+            iconSize: [32,32]
+        }));
+
+    } else if (scoreB > scoreA) {
+
+        markerB.setIcon(new L.Icon.Default());
+
+        markerA.setIcon(new L.Icon({
+            iconUrl: "https://maps.google.com/mapfiles/ms/icons/gray-dot.png",
+            iconSize: [32,32]
+        }));
+
+    }
 }
+ async function analyzeLocation() {
 
-    simulateData(); // tu función existente
-// 🔥 Competencia real basada en negocios encontrados
-const competenciaReal = negocios.length;
+    let lat, lng;
 
-// Convertir competencia en score (menos competencia = mejor)
-let competenciaScore;
+    if (currentPoint === "A" && markerA) {
 
-if (competenciaReal <= 2) competenciaScore = 90;
-else if (competenciaReal <= 5) competenciaScore = 75;
-else if (competenciaReal <= 10) competenciaScore = 55;
-else competenciaScore = 35;
+        ({ lat, lng } = markerA.getLatLng());
 
-locationData.competencia = competenciaScore;
+        if (circleA) map.removeLayer(circleA);
+
+        circleA = L.circle([lat, lng], {
+            radius: 500,
+            color: "blue",
+            fillColor: "#3b82f6",
+            fillOpacity: 0.15
+        }).addTo(map);
+
+    } else if (currentPoint === "B" && markerB) {
+
+        ({ lat, lng } = markerB.getLatLng());
+
+        if (circleB) map.removeLayer(circleB);
+
+        circleB = L.circle([lat, lng], {
+            radius: 500,
+            color: "purple",
+            fillColor: "#a855f7",
+            fillOpacity: 0.15
+        }).addTo(map);
+
+    } else {
+
+        alert("Primero selecciona un punto en el mapa");
+        return;
+
+    }
+
+    // 🔥 cargar negocios reales
+    await fetchNegocios(lat, lng);
+map.setView([lat, lng], 16);
+    // 🔥 simular otros datos
+    simulateData();
+
+    // 🔥 calcular competencia real
+    const competenciaReal = negocios ? negocios.length : 0;
+
+    let competenciaScore;
+
+    competenciaScore = Math.max(20, 100 - (competenciaReal * 8));
+
+    locationData.competencia = competenciaScore;
+
+    // 🔥 calcular score
     let weights = businessWeights[currentBusiness];
     let score = 0;
 
     Object.keys(weights).forEach(key => {
         score += weights[key] * locationData[key];
     });
+
+    mostrarResultado(score);
+    mostrarComparacion();
+
+}
+
+function mostrarResultado(score) {
 
     const scoreFormatted = score.toFixed(1);
 
@@ -335,7 +791,6 @@ locationData.competencia = competenciaScore;
     const colorClass = getScoreColor(scoreFormatted).split(' ')[0];
     const textColorClass = getScoreColor(scoreFormatted).split(' ')[1];
 
-    // Reset barra para animación limpia
     bar.style.width = "0%";
 
     setTimeout(() => {
@@ -344,45 +799,25 @@ locationData.competencia = competenciaScore;
     }, 50);
 
     scoreText.innerText = scoreFormatted + "%";
-    scoreText.className = `text-4xl font-black transition-colors ${textColorClass}`;
+    scoreText.className = `text-4xl font-black ${textColorClass}`;
 
     document.getElementById("result-placeholder").classList.add("hidden");
-    document.getElementById("result-content").classList.remove("hidden");
+   document.getElementById("result-content").classList.remove("hidden");
 
-    // Variables visuales
-    const contadorHTML = `
-    <div class="mb-3 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700 font-semibold text-center">
-        Competencia en ${currentPoint === "A" ? "Punto A" : "Punto B"} (500m): 
-        <span class="font-black">${negocios.length}</span> establecimientos
-    </div>
-`;
-    const variablesHTML = [
-        { label: 'Flujo Peatonal', key: 'peatonal' },
-        { label: 'Nivel Socioeconómico', key: 'nivel' },
-        { label: 'Accesibilidad', key: 'accesibilidad' },
-        { label: 'Seguridad', key: 'seguridad' },
-        { label: 'Competencia (Saturación)', key: 'competencia' }
-    ].map(v => `
-        <div class="flex justify-between items-center p-2 rounded bg-gray-50 border border-gray-100">
-            <span class="font-medium text-gray-600">${v.label}</span>
-            <span class="font-bold ${locationData[v.key] >= 70 ? 'text-green-600' : (locationData[v.key] >= 50 ? 'text-yellow-600' : 'text-red-600')}">
-                ${locationData[v.key]}%
-            </span>
-        </div>
-    `).join('');
-
-   document.getElementById("variable-list").innerHTML = contadorHTML + variablesHTML;
-    // Guardar punto para comparación
-    if (currentPoint === "A") {
-        pointA = score;
-    } else {
-        pointB = score;
-    }
-
-    // Mostrar comparación si ya existen ambos puntos
-    mostrarComparacion();
+// 🔥 GUARDAR SCORE EN CADA PUNTO
+if (currentPoint === "A") {
+    pointA = score;
+} else if (currentPoint === "B") {
+    pointB = score;
 }
 
+// 🔥 detectar mejor punto visualmente
+detectarMejorPuntoAutomatico();
+// limpiar lista antes de agregar nueva recomendación
+document.getElementById("variable-list").innerHTML = "";
+mostrarComparacion();
+
+}
      function mostrarComparacion() {
 
     if (pointA !== null && pointB !== null) {
@@ -472,7 +907,43 @@ let markerA = null;
 let markerB = null;
 let negocios = [];
 let negocioMarkers = [];
+let heatLayer = null;
+function mostrarHeatmap() {
 
+    if (heatLayer) {
+        map.removeLayer(heatLayer);
+    }
+
+    if (!negocios || negocios.length === 0) return;
+
+    const puntos = negocios.map(n => {
+
+        const lat = parseFloat(n.latitud);
+        const lng = parseFloat(n.longitud);
+
+        if (!isNaN(lat) && !isNaN(lng)) {
+
+            return [lat, lng, 1];
+
+        }
+
+    }).filter(Boolean);
+
+    heatLayer = L.heatLayer(puntos, {
+
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        gradient: {
+            0.2: 'green',
+            0.4: 'yellow',
+            0.6: 'orange',
+            0.8: 'red'
+        }
+
+    }).addTo(map);
+
+}
 function initMap() {
 
     // Centro Puebla
@@ -490,10 +961,15 @@ function initMap() {
                 map.removeLayer(markerA);
             }
 
-            markerA = L.marker(e.latlng, { draggable: true })
-                .addTo(map)
-                .bindPopup("Punto A")
-                .openPopup();
+            const iconA = L.icon({
+                iconUrl: "https://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                iconSize: [32,32]
+            });
+
+            markerA = L.marker(e.latlng, {
+                draggable: true,
+                icon: iconA
+            }).addTo(map); // 🔥 ESTA LINEA FALTABA
 
         } else {
 
@@ -501,13 +977,20 @@ function initMap() {
                 map.removeLayer(markerB);
             }
 
-            markerB = L.marker(e.latlng, { draggable: true })
-                .addTo(map)
-                .bindPopup("Punto B")
-                .openPopup();
+            const iconB = L.icon({
+                iconUrl: "https://maps.google.com/mapfiles/ms/icons/purple-dot.png",
+                iconSize: [32,32]
+            });
+
+            markerB = L.marker(e.latlng, {
+                draggable: true,
+                icon: iconB
+            }).addTo(map); // 🔥 ESTA LINEA FALTABA
+
         }
 
         alert("Ubicación guardada para Punto " + currentPoint);
+
     });
 }
     window.onload = () => {
