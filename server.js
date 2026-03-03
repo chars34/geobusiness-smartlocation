@@ -1,72 +1,101 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
+const path = require("path");
 const csv = require("csv-parser");
+const axios = require("axios");
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
+app.use(express.json());
+
+// Servir archivos estáticos
+app.use(express.static(__dirname));
 
 let negocios = [];
+let csvCargado = false;
 
-// 📌 Cargar CSV
-fs.createReadStream("./conjunto_de_datos/denue_inegi_21_.csv")
-    .pipe(csv())
-    .on("data", (row) => {
-        row.codigo_act = String(row.codigo_act || "").trim();
-        negocios.push(row);
-    })
-    .on("end", () => {
-        console.log("CSV cargado. Total negocios:", negocios.length);
-    });
+const CSV_PATH = path.join(__dirname, "conjunto_de_datos", "denue_inegi_21_.csv");
 
-// 📌 Fórmula Haversine
+// ============================
+// CARGAR CSV
+// ============================
+if (fs.existsSync(CSV_PATH)) {
+    fs.createReadStream(CSV_PATH)
+        .pipe(csv())
+        .on("data", (row) => {
+            const lat = parseFloat(row.latitud);
+            const lng = parseFloat(row.longitud);
+
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            const negocio = {
+                nombre: row.nom_estab?.trim() || "SIN NOMBRE",
+                codigo_act: String(row.codigo_act || "").trim(),
+                latitud: lat,
+                longitud: lng,
+                direccion: `${row.nom_vial || ""} ${row.numero_ext || ""}, ${row.nom_col || ""}`
+                    .replace(/\s+/g, " ")
+                    .trim()
+            };
+
+            negocios.push(negocio);
+        })
+        .on("end", () => {
+            csvCargado = true;
+            console.log("✅ CSV cargado correctamente");
+            console.log("Total negocios:", negocios.length);
+        })
+        .on("error", (err) => {
+            console.error("❌ Error leyendo CSV:", err.message);
+        });
+} else {
+    console.error("❌ No se encontró el CSV en la ruta:", CSV_PATH);
+}
+
+// ============================
+// FUNCIÓN DISTANCIA (Haversine)
+// ============================
 function distancia(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const toRad = x => x * Math.PI / 180;
+    const R = 6371000; // metros
+    const toRad = x => (x * Math.PI) / 180;
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
 
     const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLat / 2) ** 2 +
         Math.cos(toRad(lat1)) *
         Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2) ** 2;
 
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
 
-// 📌 Endpoint
+// ============================
+// API DENUE
+// ============================
 app.get("/api/denue", (req, res) => {
 
-    const lat = req.query.lat;
-    const lng = req.query.lng;
-    const radio = parseInt(req.query.radio) || 500;
-    const codigo = req.query.codigo;
+    if (!csvCargado) {
+        return res.status(503).json({ error: "CSV aún cargando, intenta en unos segundos." });
+    }
 
-    console.log("Codigo recibido:", codigo);
-    console.log("Lat:", lat, "Lng:", lng);
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const radio = parseFloat(req.query.radio) || 500;
+    const codigo = req.query.codigo?.trim();
 
-    if (!lat || !lng) {
-        return res.status(400).json({ error: "Faltan coordenadas" });
+    // 🔥 VALIDACIÓN CORRECTA
+    if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ error: "Coordenadas inválidas" });
     }
 
     const resultados = negocios.filter(n => {
-
-        const latNeg = parseFloat(n.latitud);
-        const lonNeg = parseFloat(n.longitud);
-
-        if (!latNeg || !lonNeg) return false;
-
-        const d = distancia(
-            parseFloat(lat),
-            parseFloat(lng),
-            latNeg,
-            lonNeg
-        );
-
+        const d = distancia(lat, lng, n.latitud, n.longitud);
         if (d > radio) return false;
 
         if (codigo) {
@@ -78,12 +107,32 @@ app.get("/api/denue", (req, res) => {
 
     res.json({
         total: resultados.length,
-        negocios: resultados.slice(0, 50)
+        negocios: resultados.slice(0, 100)
     });
 });
 
-const PORT = process.env.PORT || 3000;
+// ============================
+// API CONEXIÓN ML (FLASK)
+// ============================
+app.post("/api/ml", async (req, res) => {
+    try {
+        const response = await axios.post(
+            "http://127.0.0.1:5001/predecir",
+            req.body,
+            { timeout: 5000 }
+        );
 
+        res.json(response.data);
+
+    } catch (error) {
+        console.error("❌ Error ML:", error.message);
+        res.status(500).json({ error: "Error conectando con el servidor ML" });
+    }
+});
+
+// ============================
+// INICIAR SERVIDOR
+// ============================
 app.listen(PORT, () => {
-    console.log("Servidor corriendo en puerto", PORT);
+    console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
 });
